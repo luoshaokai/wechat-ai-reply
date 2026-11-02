@@ -1,0 +1,23 @@
+# 第三方组件说明（NOTICE）
+
+本项目本体以 MIT 许可证发布（见 `LICENSE`）。运行时会用到下面这个第三方组件，
+它的许可证不是 MIT，这里按它的要求单独声明。
+
+## wechatauto-replica
+
+- 用途：读取本机微信 4.x 的本地消息库（SQLCipher 解密）+ 通过 Windows UIA 操作微信窗口发消息。
+- 上游项目：https://github.com/fanyuantaier/wechatauto-replica
+- 许可证：Apache License 2.0（全文见 `vendor/wechatauto-replica/LICENSE`）
+- 作者：wechatauto-replica（非本项目的贡献者）
+- 分发形式：本仓库默认**不**把它编进源码里，安装脚本从 PyPI 安装
+  `wechatauto-replica==1.2.8.1`；`vendor/` 目录下放的是同一版本的上游原始发布包
+  （sdist 压缩包），供离线安装。**上游代码未经本项目修改**。
+- 如果你改用 `--offline` 安装或把库直接拷进项目，请保留 Apache-2.0 的许可证全文、
+  本 NOTICE 文件，以及上游包里的 `LICENSE`、`NOTICE`（如果有）。
+- Apache-2.0 与 MIT 的关系：Apache-2.0 是许可内授权专利的宽松许可证，与本项目的 MIT
+  可以共存；但 Apache-2.0 组件本身再分发时必须带上它的许可证全文和归属声明。
+
+## 其他依赖
+
+`uiautomation`、`pywin32`、`Pillow`、`psutil`、`websockets`、`cryptography` 等都由 pip
+从各自上游安装，本仓库不含其源码，许可证以各自上游为准。

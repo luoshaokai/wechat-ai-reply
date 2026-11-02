@@ -1,0 +1,10 @@
+# 换行策略：一键 bat 必须是 CRLF（cmd 按代码页解析），压缩包和二进制不许动。
+* text=auto eol=lf
+
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+*.tar.gz binary
+*.png binary
+*.jpg binary
+*.ico binary

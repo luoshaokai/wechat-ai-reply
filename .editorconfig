@@ -1,0 +1,21 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.py]
+indent_style = space
+indent_size = 4
+max_line_length = 110
+
+[*.{yaml,yml,json,md}]
+indent_style = space
+indent_size = 2
+
+# .bat 必须是 GBK + CRLF，否则 cmd 会把中文注释读成乱码、甚至报语法错
+[*.bat]
+charset = gbk
+end_of_line = crlf

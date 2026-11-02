@@ -1,0 +1,60 @@
+# 微信 AI 回复助手 · 配置样例
+#
+# 用法：把本文件复制成 config.yaml（启动脚本会自动复制），再改这几项。
+# config.yaml 已被 .gitignore 排除，不会被提交。
+#
+# 改完哪些要重启：
+#   limits / send / respond  —— 不用重启，下一条消息就生效
+#   llm / persona            —— 要重启桥接（网页控制台里改是即时生效的）
+
+# ────────────────────────────── 模型（本地大脑）
+llm:
+  # 兼容 OpenAI /v1/chat/completions 或 Anthropic /v1/messages 的任意服务。
+  # 地址填到版本号那一层：OpenAI 兼容以 /v1 结尾，Anthropic 填根地址。
+  #
+  # 下面默认是本地 Ollama（不用密钥，装好就能跑通）。用云端服务就换成它的地址和模型名，例如：
+  #   baseURL: "https://api.deepseek.com/v1"    model: deepseek-chat
+  #   baseURL: "https://api.openai.com/v1"      model: gpt-4o-mini
+  #   本地 llama.cpp / LM Studio / vLLM 也同样是 .../v1 + 密钥留空
+  baseURL: "http://localhost:11434/v1"
+  api: openai            # openai | anthropic
+  model: qwen2.5:7b
+
+  # 密钥三种写法，任选一种（优先级：环境变量 > 这里）：
+  #   1) 环境变量 WXREPLY_API_KEY=xxxx （推荐，文件里不留明文）
+  #   2) 就填在下面这一行
+  #   3) 什么都不填，启动后打开网页控制台「模型」页现场填
+  apiKey: ""
+
+# ────────────────────────────── 说话风格（人设）
+# 这段文字会原样发给模型，告诉它「你是谁、平时怎么说话」。
+# 越具体越像本人：常用词、口头禅、称呼、句子长短、爱不爱发问号。
+# 建议先写上三五句真实聊天样本，再照着调；不要写你的账号 ID、手机号、密码。
+persona: |
+  你在用微信跟熟人聊天，你不是助手，也不是 AI。
+  说话方式：
+  - 一句话能说完就别说两句，每条不超过 20 个字。
+  - 口语，不用标点堆砌，不用 markdown，不用表情符号。
+  - 对方问无关的事就说「回头说」「在忙」。
+  - 不熟的请求直接拒：「不方便」「找错人了」。
+
+# ────────────────────────────── 限速（防刷屏，也防风控）
+limits:
+  minIntervalSeconds: 10   # 同一个人两条回复之间至少隔多久
+  dailyMaxPerChat: 0       # 单人每天最多回几条，0 = 不限
+  dailyMaxTotal: 0         # 全体每天最多回几条，0 = 不限
+
+# ────────────────────────────── 回谁
+respond:
+  # 只有名单里的会话才会被自动回复。第一次运行会用它生成 allowlist.json，
+  # 之后请在网页控制台的「名单」页增删（也可以直接改 wxbridge/allowlist.json）。
+  allowChats: [小明, 小红]
+  allowGroups: true        # 群消息要不要处理；false = 只处理私聊
+  groupsNeedAt: true       # 群里只有 @ 我才回；false = 群消息也回（很容易刷屏，别开）
+
+# ────────────────────────────── 发送行为
+send:
+  delaySeconds: [3, 8]     # 收到消息后随机隔这几秒再发，像真人看了一眼才回
+  maxAgeSeconds: 120       # 超过这个年龄的消息只推水位不回（防止长时间停机后群发旧消息）
+  dockRight: true          # 发送前把微信窗口摆到屏幕右半，坐标才稳
+  cooloffSeconds: 30       # 连发触顶后的冷却秒数；0 = 用发送库自己的随机冷却（30~75 秒）

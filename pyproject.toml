@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wechat-ai-reply"
+version = "1.0.0"
+description = "给自己的 PC 微信挂一个会看人设说话的自动回复：本地读消息库 + 界面发送 + 你自己选的模型"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "wechat-ai-reply contributors" }]
+keywords = ["wechat", "auto-reply", "llm", "ui-automation", "windows"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Win32 (MS Windows)",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Communications :: Chat",
+]
+
+# 真正的依赖清单见 requirements.txt；这里保持同步，方便 pip install . 也能拉齐。
+dependencies = [
+    "websockets>=12.0",
+    "wechatauto-replica==1.2.8.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/your-name/wechat-ai-reply"
+Issues = "https://github.com/your-name/wechat-ai-reply/issues"
+
+[tool.setuptools]
+# 本项目直接跑源码（python wxbridge/bridge.py），不装成 site-packages：
+# 模块之间是平铺导入（import appconfig 之类），打成包反而跑不起来。
+# `pip install .` 的作用只有一个 —— 把上面的依赖装好。
+py-modules = []
+
+[tool.ruff]
+line-length = 110
+target-version = "py39"

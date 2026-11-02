@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%230071e3'/%3E%3Cstop offset='1' stop-color='%2330d158'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='18' fill='url(%23g)'/%3E%3Ctext x='32' y='44' font-size='34' font-weight='600' text-anchor='middle' fill='%23fff' font-family='PingFang SC,Microsoft YaHei,sans-serif'%3E滴%3C/text%3E%3C/svg%3E" />
+<title>微信 AI 回复助手</title>
+<style>
+  /* ---------------------------------------------------------------
+     便当格：材质 + 排版节奏。深色为主调，浅色可切。
+     规矩：圆角 22px；强调色只给关键动作和状态（版面 10% 以内）；
+           动效只碰 transform / opacity，150~300ms。
+     --------------------------------------------------------------- */
+  :root {
+    --r: 22px;
+    --bg: #f5f5f7;
+    --card: #ffffff;
+    --card-2: #fbfbfd;
+    --line: rgba(0, 0, 0, .08);
+    --line-2: rgba(0, 0, 0, .05);
+    --fg: #1d1d1f;
+    --fg2: #6e6e73;
+    --dim: #86868b;
+    --accent: #0071e3;
+    --accent-soft: rgba(0, 113, 227, .10);
+    --rose: #ff375f;
+    --rose-soft: rgba(255, 55, 95, .10);
+    --green: #30d158;
+    --green-soft: rgba(48, 209, 88, .12);
+    --amber: #c27803;
+    --amber-soft: rgba(194, 120, 3, .12);
+    --shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 8px 24px rgba(0, 0, 0, .05);
+    --shadow-lg: 0 24px 64px rgba(0, 0, 0, .18);
+    --bubble-in: #ffffff;
+    --bubble-out: rgba(0, 113, 227, .08);
+    --track: rgba(0, 0, 0, .12);
+  }
+  html[data-theme="dark"] {
+    --bg: #0a0a0c;
+    --card: #1c1c1e;
+    --card-2: #232326;
+    --line: rgba(255, 255, 255, .09);
+    --line-2: rgba(255, 255, 255, .055);
+    --fg: #f5f5f7;
+    --fg2: #a1a1a6;
+    --dim: #8e8e93;
+    --accent: #0a84ff;
+    --accent-soft: rgba(10, 132, 255, .16);
+    --rose: #ff453a;
+    --rose-soft: rgba(255, 69, 58, .16);
+    --green: #30d158;
+    --green-soft: rgba(48, 209, 88, .16);
+    --amber: #ffd60a;
+    --amber-soft: rgba(255, 214, 10, .14);
+    --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 10px 30px rgba(0, 0, 0, .35);
+    --shadow-lg: 0 30px 80px rgba(0, 0, 0, .65);
+    --bubble-in: #232326;
+    --bubble-out: rgba(10, 132, 255, .18);
+    --track: rgba(255, 255, 255, .18);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 15px/1.7 -apple-system, "SF Pro Text", "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased; letter-spacing: -.005em;
+    overflow: hidden;
+  }
+  .app { height: 100%; display: flex; flex-direction: column; }
+  .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; letter-spacing: -.03em; }
+
+  /* ---------- 顶栏 ---------- */
+  .topbar {
+    display: flex; align-items: center; gap: 12px; padding: 13px 22px; flex: none; z-index: 20;
+    background: color-mix(in srgb, var(--bg) 78%, transparent);
+    backdrop-filter: blur(20px) saturate(160%);
+    border-bottom: 1px solid var(--line-2);
+  }
+  .logo { font-weight: 640; font-size: 16.5px; letter-spacing: -.01em; display: flex; align-items: center; gap: 9px; }
+  .logo i {
+    width: 26px; height: 26px; border-radius: 10px; display: inline-block;
+    background: linear-gradient(150deg, var(--accent), color-mix(in srgb, var(--accent) 40%, var(--green)));
+  }
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 9px 16px;
+    font-size: 13.5px; font-weight: 560; cursor: pointer; border: 1px solid var(--line);
+    background: var(--card); color: var(--fg2); min-height: 40px;
+    transition: transform .18s ease, opacity .18s ease;
+  }
+  .pill:active { transform: scale(.98); }
+  .pill.ok { color: var(--green); border-color: color-mix(in srgb, var(--green) 35%, transparent); }
+  .pill.warn { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 35%, transparent); }
+  .pill.bad { color: var(--rose); border-color: color-mix(in srgb, var(--rose) 35%, transparent); }
+  .pill .led { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .tabs { display: flex; gap: 3px; padding: 5px; background: var(--card); border: 1px solid var(--line-2);
+          border-radius: 999px; margin-left: 6px; }
+  .tabs button {
+    border: 0; background: transparent; color: var(--fg2); font: inherit; font-size: 14px;
+    padding: 9px 19px; border-radius: 999px; cursor: pointer; min-height: 40px;
+    transition: color .2s ease, background .2s ease;
+  }
+  .tabs button:hover { color: var(--fg); }
+  .tabs button.on { background: var(--fg); color: var(--bg); font-weight: 560; }
+  .spacer { flex: 1; }
+  .btn {
+    border: 1px solid var(--line); background: var(--card); color: var(--fg); font: inherit;
+    font-size: 14px; padding: 12px 20px; border-radius: 14px; cursor: pointer; min-height: 48px;
+    white-space: nowrap; transition: transform .15s ease, opacity .15s ease, border-color .15s ease;
+  }
+  .btn:hover { transform: scale(1.02); }
+  .btn:active { transform: scale(.98); }
+  .btn:disabled { opacity: .45; cursor: default; transform: none; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.danger { color: var(--rose); border-color: color-mix(in srgb, var(--rose) 30%, transparent); }
+  .btn.ghost { background: transparent; }
+  .btn.sm { font-size: 13px; padding: 9px 15px; min-height: 40px; border-radius: 12px; }
+  .btn.icon { padding: 12px 14px; min-width: 48px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 12px; }
+
+  main { flex: 1; min-height: 0; position: relative; }
+  .view { position: absolute; inset: 0; display: none; overflow: hidden; }
+  .view.on { display: flex; }
+
+  /* ---------- 便当格 ---------- */
+  .bento {
+    flex: 1; overflow: auto; padding: 20px;
+    display: grid; gap: 14px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    /* 每格只跟自己的内容一样高：便当格本来就不等高，
+       强行拉齐会把列表裁掉（第一版就是这么翻车的）。 */
+    align-items: start;
+    align-content: start;
+  }
+  .cell {
+    background: var(--card); border: 1px solid var(--line-2); border-radius: var(--r);
+    box-shadow: var(--shadow); padding: 20px 22px; display: flex; flex-direction: column;
+    min-width: 0;
+    transition: transform .25s ease, opacity .25s ease;
+  }
+  .cell.tap { cursor: pointer; }
+  .cell.tap:hover { transform: translateY(-2px); }
+  .cell .label {
+    font-size: 12px; font-weight: 560; color: var(--dim); letter-spacing: .02em;
+    margin-bottom: 6px; display: flex; align-items: center; gap: 8px;
+  }
+  .cell .big { font-size: 44px; line-height: 1.05; font-weight: 640; }
+  .cell .big.sm { font-size: 32px; }
+  .cell .sub { font-size: 12.5px; color: var(--fg2); margin-top: 6px; }
+  .cell .fill { flex: 1; min-height: 0; }
+  .cell .scroll { max-height: 340px; overflow: auto; }
+  .span2 { grid-column: span 2; } .span3 { grid-column: span 3; } .span4 { grid-column: span 4; }
+  @media (max-width: 1180px) {
+    .bento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .span3, .span4 { grid-column: span 2; }
+  }
+  @media (max-width: 720px) {
+    .bento { grid-template-columns: 1fr; }
+    .span2, .span3, .span4 { grid-column: span 1; }
+    .cell .big { font-size: 38px; }
+  }
+
+  .hero .t1 { font-size: 22px; font-weight: 640; line-height: 1.35; letter-spacing: -.015em; }
+  .hero .t2 { font-size: 13.5px; color: var(--fg2); margin-top: 4px; }
+  .hero .dot {
+    width: 44px; height: 44px; border-radius: 15px; display: grid; place-items: center;
+    font-size: 20px; margin-bottom: 14px;
+  }
+  .hero.ok .dot { background: var(--green-soft); color: var(--green); }
+  .hero.warn .dot { background: var(--amber-soft); color: var(--amber); }
+  .hero.bad .dot { background: var(--rose-soft); color: var(--rose); }
+
+  /* 列表行（体检 / 异常 / 最近对话） */
+  .line {
+    display: flex; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line-2);
+    font-size: 13px; align-items: flex-start; min-width: 0;
+  }
+  .line:first-child { border-top: 0; }
+  .line .k { color: var(--dim); font-size: 11.5px; flex: none; width: 62px; padding-top: 1px; }
+  .line .v { flex: 1; min-width: 0; color: var(--fg2); overflow-wrap: anywhere; }
+  .line .v b { color: var(--fg); font-weight: 560; }
+  .line.warn .v { color: var(--amber); }
+  .mk { width: 18px; height: 18px; border-radius: 50%; flex: none; color: #fff; font-size: 10px;
+        font-weight: 700; display: grid; place-items: center; margin-top: 2px; }
+  .mk.ok { background: var(--green); } .mk.warn { background: var(--amber); } .mk.bad { background: var(--rose); }
+  .fix { color: var(--dim); font-size: 12px; margin-top: 3px; }
+
+  /* ---------- 会话 ---------- */
+  .chatlist {
+    width: 300px; flex: none; border-right: 1px solid var(--line-2); background: var(--bg);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  .searchwrap { padding: 14px; border-bottom: 1px solid var(--line-2); }
+  .chatitems { overflow: auto; flex: 1; padding: 8px; }
+  .chatitem {
+    display: flex; gap: 11px; align-items: center; padding: 11px 12px; border-radius: 16px;
+    cursor: pointer; margin-bottom: 3px; min-height: 56px;
+    transition: transform .15s ease, background .2s ease;
+  }
+  .chatitem:hover { background: var(--card); transform: translateX(2px); }
+  .chatitem.on { background: var(--card); box-shadow: var(--shadow); }
+  .avatar {
+    width: 38px; height: 38px; border-radius: 13px; flex: none; display: grid; place-items: center;
+    color: #fff; font-size: 15px; font-weight: 600;
+  }
+  .chatitem .mid { flex: 1; min-width: 0; }
+  .chatitem .nm { font-size: 13.5px; font-weight: 560; }
+  .chatitem .sn { font-size: 12px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chatitem .rt { text-align: right; flex: none; }
+  .chatitem .tm { font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
+  .tag { display: inline-block; font-size: 10.5px; padding: 2px 7px; border-radius: 7px; font-weight: 560;
+         background: var(--card-2); color: var(--dim); }
+  .tag.warn { background: var(--amber-soft); color: var(--amber); }
+  .tag.bad { background: var(--rose-soft); color: var(--rose); }
+  .tag.ok { background: var(--green-soft); color: var(--green); }
+  .tag.brand { background: var(--accent-soft); color: var(--accent); }
+
+  .chatpane { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .chathead {
+    display: flex; align-items: center; gap: 11px; padding: 14px 20px;
+    background: color-mix(in srgb, var(--bg) 70%, transparent); backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--line-2); flex: none;
+  }
+  .chathead .nm { font-weight: 620; font-size: 14.5px; }
+  .chathead .st { font-size: 12px; color: var(--dim); }
+  .thread { flex: 1; overflow: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+  .bubble { max-width: min(76%, 620px); border-radius: 18px; padding: 10px 14px; }
+  .bubble .meta { font-size: 11px; color: var(--dim); margin-bottom: 3px; font-variant-numeric: tabular-nums; }
+  .bubble .body { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .bubble.in { background: var(--bubble-in); border: 1px solid var(--line-2); align-self: flex-start; border-bottom-left-radius: 6px; }
+  .bubble.out { background: var(--bubble-out); align-self: flex-end; border-bottom-right-radius: 6px; }
+  .bubble.sys { align-self: center; background: transparent; color: var(--dim); font-size: 12.5px;
+                border: 1px dashed var(--line); padding: 6px 12px; border-radius: 999px; }
+  .bubble.think { align-self: flex-start; background: var(--accent-soft); color: var(--accent); font-size: 13px; }
+  .typing::after { content: ''; animation: dots 1.3s infinite steps(4); }
+  @keyframes dots { 0% { content: ''; } 25% { content: '·'; } 50% { content: '··'; } 75% { content: '···'; } }
+  .composer { padding: 14px 20px 18px; border-top: 1px solid var(--line-2); flex: none;
+              background: color-mix(in srgb, var(--bg) 70%, transparent); backdrop-filter: blur(16px); }
+  .composer .box { display: flex; gap: 10px; align-items: flex-end; }
+  .composer textarea { flex: 1; min-height: 44px; max-height: 130px; resize: none; }
+  .composer .hint { font-size: 12px; color: var(--dim); margin-top: 8px; }
+
+  /* ---------- 通用页面 ---------- */
+  .page { flex: 1; overflow: auto; padding: 20px; }
+  .page .inner { max-width: 980px; margin: 0 auto; display: grid; gap: 14px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line-2); border-radius: var(--r);
+    box-shadow: var(--shadow); padding: 22px;
+  }
+  .card h2 { font-size: 19px; margin: 0 0 6px; letter-spacing: -.02em; font-weight: 640; }
+  .card .lead { color: var(--fg2); font-size: 13.5px; margin: 0 0 16px; }
+  .hint { color: var(--dim); font-size: 12.5px; margin-top: 10px; line-height: 1.75; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+  .prow { display: flex; align-items: center; gap: 14px; padding: 13px 0; border-top: 1px solid var(--line-2); min-height: 60px; }
+  .prow:first-child { border-top: 0; }
+  .prow .nm { flex: 1; font-size: 14px; font-weight: 560; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .prow .dt { color: var(--dim); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .prow.off .nm { color: var(--dim); text-decoration: line-through; text-decoration-color: var(--line); }
+  .switch { position: relative; width: 44px; height: 26px; flex: none; }
+  .switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; z-index: 2; }
+  .switch .track { position: absolute; inset: 0; background: var(--track); border-radius: 999px;
+                   transition: background .2s ease; }
+  .switch .knob { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; background: #fff;
+                  border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,.3);
+                  transition: transform .2s ease; }
+  .switch input:checked ~ .track { background: var(--green); }
+  .switch input:checked ~ .knob { transform: translateX(18px); }
+
+  .presets { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--line-2); }
+  .preset { border: 1px solid var(--line); border-radius: 12px; padding: 9px 13px; font-size: 12.5px;
+            cursor: pointer; background: var(--card-2); min-height: 40px; display: inline-flex; align-items: center;
+            transition: transform .15s ease, border-color .15s ease; }
+  .preset:hover { transform: scale(1.03); border-color: var(--accent); color: var(--accent); }
+  .preset.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+
+  details { border-top: 1px solid var(--line-2); }
+  details summary { cursor: pointer; padding: 14px 0 6px; font-weight: 560; font-size: 13.5px; list-style: none;
+                    display: flex; gap: 8px; align-items: center; min-height: 44px; }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::after { content: '展开'; margin-left: auto; font-size: 12px; color: var(--dim); font-weight: 400; }
+  details[open] summary::after { content: '收起'; }
+  .logs { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 11.5px; line-height: 1.75;
+          color: var(--dim); white-space: pre-wrap; overflow-wrap: anywhere; background: var(--card-2);
+          border-radius: 14px; padding: 14px; max-height: 300px; overflow: auto; }
+
+  .steps { display: grid; gap: 14px; }
+  .step { display: flex; gap: 12px; }
+  .step .n { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--accent-soft); color: var(--accent);
+             font-size: 12px; font-weight: 700; display: grid; place-items: center; margin-top: 2px; }
+  .qa dt { font-weight: 600; color: var(--fg); margin-top: 18px; font-size: 14px; }
+  .qa dd { margin: 6px 0 0; color: var(--fg2); font-size: 13.5px; }
+
+  input, textarea {
+    width: 100%; background: var(--card-2); border: 1px solid var(--line); color: var(--fg);
+    border-radius: 14px; padding: 11px 14px; font: inherit; font-size: 14px; outline: none;
+    min-height: 44px;
+    transition: border-color .15s ease;
+  }
+  textarea { resize: vertical; line-height: 1.7; }
+  input::placeholder, textarea::placeholder { color: var(--dim); }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--dim) 32%, transparent); border-radius: 8px;
+                              border: 3px solid transparent; background-clip: content-box; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 12px);
+    background: var(--fg); color: var(--bg); padding: 12px 20px; border-radius: 14px; font-size: 13px;
+    box-shadow: var(--shadow-lg); opacity: 0; pointer-events: none;
+    transition: transform .25s ease, opacity .25s ease; z-index: 60; max-width: 88vw;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .toast.err { background: var(--rose); color: #fff; }
+
+  .mask { position: fixed; inset: 0; background: rgba(0, 0, 0, .55); display: none; place-items: center;
+          z-index: 50; backdrop-filter: blur(6px); }
+  .mask.on { display: grid; }
+  .modal {
+    width: min(580px, 92vw); background: var(--card); border-radius: var(--r); box-shadow: var(--shadow-lg);
+    border: 1px solid var(--line-2); overflow: hidden;
+    animation: pop .22s ease;
+  }
+  @keyframes pop { from { opacity: 0; transform: scale(.97); } to { opacity: 1; transform: none; } }
+  .modal h3 { margin: 0; padding: 22px 24px 4px; font-size: 18px; letter-spacing: -.02em; }
+  .modal .mbody { padding: 10px 24px 6px; max-height: 62vh; overflow: auto; }
+  .modal .mfoot { padding: 16px 24px 22px; display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+  .mcheck { display: flex; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line-2); font-size: 13px; }
+  .mcheck:first-child { border-top: 0; }
+  .mcheck .tx { flex: 1; color: var(--fg2); min-width: 0; }
+  .mtest { margin: 14px 0 4px; padding: 16px; border: 1px dashed var(--line); border-radius: 16px; font-size: 13px; }
+  .backbtn { display: none; }
+
+  /* 尊重系统「减少动态效果」 */
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+    .cell.tap:hover, .chatitem:hover, .btn:hover, .preset:hover { transform: none; }
+  }
+  @media (max-width: 860px) {
+    .tabs { order: 9; width: 100%; justify-content: space-between; margin: 0; }
+    .topbar { flex-wrap: wrap; }
+    .chatlist { width: 100%; border-right: 0; }
+    .view[data-view="chats"] .chatpane { display: none; }
+    .view[data-view="chats"].chat-open .chatlist { display: none; }
+    .view[data-view="chats"].chat-open .chatpane { display: flex; }
+    .backbtn { display: inline-block; }
+    .bubble { max-width: 88%; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="logo"><i></i>微信 AI 回复助手</div>
+    <button class="pill" id="pill"><span class="led"></span><span id="pillText">检查中…</span></button>
+    <nav class="tabs" id="tabs">
+      <button data-go="home" class="on">首页</button>
+      <button data-go="chats">会话</button>
+      <button data-go="allowlist">名单</button>
+      <button data-go="style">风格</button>
+      <button data-go="brain">设置</button>
+      <button data-go="help">说明</button>
+    </nav>
+    <span class="spacer"></span>
+    <button class="btn" id="powerBtn">…</button>
+    <button class="btn icon" id="themeBtn" title="切换深浅色" aria-label="切换深浅色">◐</button>
+  </header>
+
+  <main>
+    <!-- ================= 首页（便当格） ================= -->
+    <section class="view on" data-view="home">
+      <div class="bento">
+        <!-- 结论 -->
+        <div class="cell span2 hero" id="cellHero"></div>
+
+        <!-- 大数字 -->
+        <div class="cell tap" onclick="pillJump()">
+          <div class="label">今日回复</div>
+          <div class="big num" id="numOut">0</div>
+          <div class="sub" id="numOutSub">条</div>
+        </div>
+        <div class="cell">
+          <div class="label">正在想</div>
+          <div class="big num" id="numThink">0</div>
+          <div class="sub">个会话在等答案</div>
+        </div>
+
+        <!-- 状态 + 账号 -->
+        <div class="cell span2">
+          <div class="label">账号与通道</div>
+          <div id="kvList"></div>
+        </div>
+
+        <!-- 体检 -->
+        <div class="cell span2">
+          <div class="label">体检 <span class="spacer"></span>
+            <button class="btn sm" onclick="openModal()">重新体检</button>
+          </div>
+          <div class="fill scroll" id="checkList"></div>
+        </div>
+
+        <!-- 最近对话 -->
+        <div class="cell span2">
+          <div class="label">最近对话</div>
+          <div class="fill scroll" id="msgList"></div>
+        </div>
+
+        <!-- 异常 -->
+        <div class="cell span2">
+          <div class="label">最近异常</div>
+          <div class="fill scroll" id="eventList"></div>
+        </div>
+
+        <!-- 日志 -->
+        <div class="cell span2">
+          <div class="label">运行日志</div>
+          <details><summary>看最近一百行</summary>
+            <div class="logs" id="homeLogs">点开就会加载。</div>
+          </details>
+        </div>
+
+        <!-- 紧急刹车 + 待发送队列 -->
+        <div class="cell span2" id="pendCell">
+          <div class="label">紧急刹车 · 待发送 <span class="spacer"></span>
+            <span class="hint" style="margin:0">热键 Ctrl+Alt+X</span>
+          </div>
+          <div id="pendBody" style="font-size:13px"></div>
+          <div class="row" style="margin-top:12px">
+            <button class="btn sm" id="pauseBtn">暂停</button>
+            <button class="btn sm" id="flushBtn">立即补发</button>
+            <button class="btn sm" id="clearBtn">清空队列</button>
+          </div>
+        </div>
+        <!-- 快捷动作 -->
+        <div class="cell span2">
+          <div class="label">常用动作</div>
+          <div class="row" style="margin-top:6px">
+            <button class="btn primary" onclick="openModal()">启动 / 自检</button>
+            <button class="btn" onclick="sendTest(this,'quickOut')">发测试到文件传输助手</button>
+            <button class="btn" onclick="go('allowlist')">管名单</button>
+            <button class="btn" onclick="go('style')">改说话风格</button>
+          </div>
+          <div class="sub" id="quickOut"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= 会话 ================= -->
+    <section class="view" data-view="chats">
+      <aside class="chatlist">
+        <div class="searchwrap">
+          <input id="search" placeholder="搜聊天名 / 消息内容" />
+          <div class="row" style="margin-top:10px;gap:8px">
+            <input id="newChat" placeholder="发消息给…（微信显示名）" style="flex:1;min-width:0" />
+            <button class="btn sm" id="newChatBtn">开</button>
+          </div>
+        </div>
+        <div class="chatitems" id="chatItems"></div>
+      </aside>
+      <div class="chatpane">
+        <div class="chathead">
+          <button class="btn sm backbtn" id="backBtn">←</button>
+          <div class="avatar" id="headAvatar" style="display:none"></div>
+          <div style="min-width:0">
+            <div class="nm" id="headName">还没选聊天</div>
+            <div class="st" id="headState">左边点一个聊天，看它最近的对话</div>
+          </div>
+          <span class="spacer"></span>
+          <button class="btn sm" id="toggleAllow" style="display:none">加入名单</button>
+        </div>
+        <div class="thread" id="thread">
+          <div class="bubble sys">还没有消息。等有人给这个微信发消息，这里就会出现。</div>
+        </div>
+        <div class="composer">
+          <div class="box">
+            <textarea id="composer" placeholder="以你自己的身份补一句（Enter 发送，Shift+Enter 换行）"></textarea>
+            <button class="btn primary" id="sendBtn">发送</button>
+          </div>
+          <div class="hint" id="composerHint">先在左边点一个聊天；要给没聊过的人发，用上面「发消息给…」填名字。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= 名单 ================= -->
+    <section class="view" data-view="allowlist">
+      <div class="page"><div class="inner">
+        <div class="card">
+          <h2>谁能让它自动回复</h2>
+          <p class="lead">开关是「下次还记着」的：关掉只是暂时不回他，名字留着，随时点开；删除才是彻底删掉。
+            改完<b>下一条消息就生效</b>，不用重启。</p>
+          <div class="row" style="margin-bottom:8px">
+            <input id="newName" placeholder="加一个人：填微信聊天窗口标题（备注名优先）" style="flex:1;min-width:180px" />
+            <button class="btn primary" id="addBtn">加入名单</button>
+          </div>
+          <div id="peopleList"></div>
+          <div class="hint">
+            名字必须跟微信里显示的一字不差，写错了就等于没加；群聊还要 <b>@ 我</b> 才会回。<br>
+            关掉的人还能看到聊天记录，随时开回来；删掉就查无此人了。
+          </div>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- ================= 风格 ================= -->
+    <section class="view" data-view="style">
+      <div class="page"><div class="inner">
+        <div class="card">
+          <h2>它该怎么说话</h2>
+          <p class="lead">下面这个框就是它的「说话说明书」，改完保存，<b>下一条消息</b>就照新的来。
+            懒得写就点模板——<b>点一下会把框里的内容替换成模板</b>，然后随便改、叠加、再保存。</p>
+          <div class="presets" id="presets"></div>
+          <div style="padding-top:16px">
+            <textarea id="styleText" placeholder="例：像平时发微信那样，短句、口语，一条最多 20 字；别反问，别总结。"></textarea>
+            <div class="row" style="margin-top:14px">
+              <button class="btn primary" id="styleSave">保存</button>
+              <button class="btn" id="stylePreview">预览效果</button>
+              <span class="hint" style="margin:0" id="styleState"></span>
+            </div>
+          </div>
+          <div class="hint">
+            <b>这段文字就是全部风格</b>，会覆盖人设里的字数限制（比如原来的「最多 20 字」会被摘掉）。<br>
+            所以别同时留两句相反的要求（「说长一点」和「最多 20 字」并存时，模型会挑着听）。<br>
+            硬底线永远优先：不带表情、不承认是 AI、不动你电脑、钱的事不乱答应。<br>
+            默认<b>整条发一条</b>；只有它写的话里出现逗号、句号或问号，才会拆成两条发（像真人分两下说），不会再拆第三条。<br>
+            设置存在 <code>wxbridge/style.json</code>，本地大脑每条回复都按它说话。
+          </div>
+        </div>
+        <div class="card" id="previewBox" hidden>
+          <div class="label" style="font-size:13px;font-weight:600;margin-bottom:12px">预览（不会发到微信）</div>
+          <div class="row" style="margin-bottom:12px">
+            <input id="previewMsg" value="在吗？晚上吃啥" style="flex:1;min-width:200px" />
+            <button class="btn" id="previewAgain">用这句试</button>
+          </div>
+          <div id="previewOut" style="font-size:14px"></div>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- ================= 设置（大脑：用哪个模型） ================= -->
+    <section class="view" data-view="brain">
+      <div class="page"><div class="inner">
+        <div class="card">
+          <h2>大脑：用哪个模型回话</h2>
+          <p class="lead">
+            回消息就用这<b>一个</b>模型。填了地址和模型名就用你填的；不填就跟随 外部配置里配好的那个。
+            改完点「保存」，下一条消息就生效。
+          </p>
+
+          <div id="brainFields">
+            <div style="font-size:12.5px;color:var(--dim);margin-bottom:8px">常用服务（点一下自动填地址，模型名按你实际有的改）</div>
+            <div class="presets" id="brainTemplates" style="border-bottom:0;padding-bottom:0"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px">
+              <label style="display:block">
+                <div style="font-size:12.5px;color:var(--dim);margin-bottom:6px">接口地址（baseURL）</div>
+                <input id="brainURL" placeholder="http://127.0.0.1:11434/v1" />
+              </label>
+              <label style="display:block">
+                <div style="font-size:12.5px;color:var(--dim);margin-bottom:6px">模型名</div>
+                <input id="brainModel" placeholder="qwen2.5:7b" />
+              </label>
+              <label style="display:block">
+                <div style="font-size:12.5px;color:var(--dim);margin-bottom:6px">协议</div>
+                <select id="brainApi" style="width:100%;background:var(--card-2);border:1px solid var(--line);color:var(--fg);border-radius:14px;padding:11px 14px;font:inherit;font-size:14px;min-height:44px">
+                  <option value="openai">OpenAI 兼容（Ollama / LM Studio / vLLM）</option>
+                  <option value="anthropic">Anthropic 兼容</option>
+                </select>
+              </label>
+              <label style="display:block">
+                <div style="font-size:12.5px;color:var(--dim);margin-bottom:6px">密钥（本地一般不用填）</div>
+                <input id="brainKey" type="password" placeholder="留空 = 不改动" />
+              </label>
+            </div>
+            <div class="row" style="margin-top:14px">
+              <button class="btn primary" id="brainSave">保存</button>
+              <button class="btn" id="brainTest">测试连接</button>
+              <span class="hint" style="margin:0" id="brainState"></span>
+            </div>
+            <div id="brainTestOut" style="margin-top:10px;font-size:13px"></div>
+          </div>
+
+          <div class="hint">
+            现在生效：<b id="brainActive">—</b><br>
+            · 地址和模型名留空 = 用 config.yaml 里 llm 段配的模型。<br>
+            · 地址填到 <code>/v1</code> 那一层就行（OpenAI 兼容）；粘成全地址（带 <code>/chat/completions</code>）也认，会自动剥掉重复的一段。Anthropic 选协议后填根地址。<br>
+            · 「测试连接」是按<b>上面四个框现在的值</b>真发一句话，不用先保存；密钥框留空表示沿用已存的那把。<br>
+            · 本地模型建议 7B 以上、中文好一点的；太小会答得像机器人，反而更容易露馅。<br>
+            · 配置存在 <code>wxbridge/brain.json</code>，密钥只在本机。
+          </div>
+        </div>
+      </div></div>
+    </section>
+    <section class="view" data-view="help">
+      <div class="page"><div class="inner">
+        <div class="card">
+          <h2>它是怎么工作的</h2>
+          <p class="lead">一句话：它冒充你，在微信里帮你回消息。下面四步就是它每一步在干嘛。</p>
+          <div class="steps">
+            <div class="step"><span class="n">1</span><div>有人给你的微信发消息 —— 本机的<b>消息通道</b>从微信自己的聊天记录里读到这条（只读，不点你的界面）。</div></div>
+            <div class="step"><span class="n">2</span><div>通道把内容交给<b>回复大脑</b>：默认就是自带的<b>本地大脑</b>（直连你在 config.yaml 里配的模型，1~2 秒）；想接自己的程序，挂一个外部应答端上来即可。</div></div>
+            <div class="step"><span class="n">3</span><div>大脑按<b>「风格」页那段说明书</b>想一句话：很短、口语、不带表情、不承认自己是 AI。</div></div>
+            <div class="step"><span class="n">4</span><div>通道把它<b>打进你自己的微信发出去</b>——所以要开着微信窗口、要管理员权限、每条要十几秒。</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <h2>快速上手（三步）</h2>
+          <div class="steps">
+            <div class="step"><span class="n">1</span><div>首页看徽章是不是<b>绿色</b>；点「启动 / 自检」会先弹自检窗，红项照着提示修。</div></div>
+            <div class="step"><span class="n">2</span><div>去<b>「名单」</b>把愿意让它回的人加进来（开关默认打开）。</div></div>
+            <div class="step"><span class="n">3</span><div>去<b>「风格」</b>点个模板、改两句、先「预览效果」，满意了保存。</div></div>
+          </div>
+          <div class="hint">想调限速、发送延迟、名单规则，或者出问题时：翻仓库里 <code>docs\使用指南.md</code>、<code>docs\常见问题.md</code>（改代码的看 <code>docs\开发说明.md</code>）。</div>
+        </div>
+        <div class="card">
+          <h2>常见问题</h2>
+          <dl class="qa">
+            <dt>某条消息为什么没回？</dt>
+            <dd>会话页里那条会写原因：不在名单 / 名单里但被关掉了 / 群里没 @ 我 / 冷却中（10 秒内连发）/
+              今天回太多到上限 / 重复投递。没写原因又没回音，就是还在等大脑（会显示「正在想」）。</dd>
+            <dt>为什么会「断开 / 失效」？</dt>
+            <dd>① <b>外部应答端重启或卡死</b>——那几秒没人接话（75 秒后本地大脑接手）；
+              ② <b>微信窗口被最小化/关掉</b>——发送是点界面（现在发前会自动找回窗口）；
+              ③ <b>没管理员权限</b>——会退化成坐标+OCR；
+              ④ <b>电脑睡眠 / 断网</b>——模型调不通；
+              ⑤ <b>发送卡死</b>——超过 75 秒硬退进程，管家 6 秒内拉起。</dd>
+            <dt>为什么回得慢？</dt>
+            <dd>模型想（几秒）+ 故意装作人在打字（3~8 秒）+ 真发到微信（点界面，十几秒）。两分钟内连发触顶还会强制冷却（默认 30 秒）。</dd>
+            <dt>外部应答端没在跑会怎样？</dt>
+            <dd>自动切本地大脑继续回，只是降级成「只按人设生成一句话」（不带你应答端里的额外能力）。应答端重连上后几秒内自动切回。</dd>
+            <dt>电脑关机 / 睡着了？</dt>
+            <dd>那就完全不回。机器要开着、微信要登录着、窗口不能最小化。</dd>
+            <dt>会回错人 / 会被封号吗？</dt>
+            <dd>只有名单里、且开关打开的人才会回；群里要 @；每人每天有上限、每条之间有冷却；不群发、不加好友。</dd>
+          </dl>
+        </div>
+      </div></div>
+    </section>
+  </main>
+</div>
+
+<div class="mask" id="mask">
+  <div class="modal">
+    <h3 id="mTitle">启动前自检</h3>
+    <div class="mbody">
+      <div id="mChecks"></div>
+      <div class="mtest">
+        <div style="font-weight:600;margin-bottom:6px">顺便发条测试消息？</div>
+        <div class="hint" style="margin:0 0 10px">发到微信「文件传输助手」，验证发送通道真的通。约 15~25 秒。</div>
+        <button class="btn sm" id="mTestBtn">发测试到文件传输助手</button>
+        <div id="mTestOut" style="margin-top:10px;font-size:12.5px;color:var(--dim)"></div>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn" id="mClose">先不了</button>
+      <button class="btn primary" id="mGo">开始自动回复</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const DATA = (location.port === '8767') ? 'http://127.0.0.1:8766' : '';
+const CTRL = 'http://127.0.0.1:8767';
+const STATIC = new URLSearchParams(location.search).has('static');
+const state = { status: null, health: null, ctrl: null, style: null, events: [],
+                view: 'home', chat: '', q: '', down: false, extra: [], entries: [] };
+let toastTimer = null;
+
+function toast(msg, err) {
+  const t = $('toast');
+  t.textContent = msg; t.className = 'toast show' + (err ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = 'toast'; }, 3200);
+}
+async function api(path, opts) {
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), 180000);
+  try {
+    const res = await fetch(path, Object.assign({ signal: ac.signal }, opts));
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+    return data;
+  } finally { clearTimeout(timer); }
+}
+const pad = (n) => String(n).padStart(2, '0');
+const clock = (ts) => { const d = new Date((ts || 0) * 1000); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+const clockS = (ts) => { const d = new Date((ts || 0) * 1000); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); };
+function ago(ts) {
+  const s = Math.max(0, Math.round(Date.now() / 1000 - ts));
+  if (s < 60) return s + ' 秒';
+  if (s < 3600) return Math.round(s / 60) + ' 分钟';
+  if (s < 86400) return Math.round(s / 3600) + ' 小时';
+  return Math.round(s / 86400) + ' 天';
+}
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const initial = (name) => (String(name || '?').trim()[0] || '?');
+const hue = (name) => { let h = 0; for (const ch of String(name)) h = (h * 31 + ch.codePointAt(0)) % 360; return h; };
+const avatarHtml = (name) => '<div class="avatar" style="background:hsl(' + hue(name) + ' 58% 46%)">' + esc(initial(name)) + '</div>';
+
+(function initTheme() {
+  const forced = new URLSearchParams(location.search).get('theme');
+  const saved = forced || localStorage.getItem('wx-theme');
+  // 这套风格深色是主调：没选过就默认深色
+  const dark = saved ? saved === 'dark' : !matchMedia('(prefers-color-scheme: light)').matches;
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+})();
+$('themeBtn').addEventListener('click', () => {
+  const now = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = now;
+  localStorage.setItem('wx-theme', now);
+});
+
+const VIEWS = ['home', 'chats', 'allowlist', 'style', 'brain', 'help'];
+function go(view) {
+  state.view = view;
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('on', v.dataset.view === view));
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.go === view));
+  if (view === 'allowlist') renderPeople();
+  if (view === 'style') renderStyle();
+  if (view === 'brain') if (!state.brain) loadBrain();
+  if (location.hash.slice(1) !== view) history.replaceState(null, '', '#' + view);
+}
+$('tabs').addEventListener('click', (e) => { const b = e.target.closest('button[data-go]'); if (b) go(b.dataset.go); });
+function pillJump() { $('checkList').scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+$('pill').addEventListener('click', pillJump);
+
+/* ---------------- 首页 ---------------- */
+function todayStart() {
+  const d = new Date(); d.setHours(0, 0, 0, 0);
+  return d.getTime() / 1000;
+}
+function renderHome() {
+  const s = state.status, h = state.health;
+  const failed = h ? (h.checks || []).filter(c => !c.ok) : [];
+  const warns = h ? (h.checks || []).filter(c => c.ok && c.level === 'warn') : [];
+  const cls = state.down ? 'bad' : (failed.length ? 'bad' : (warns.length ? 'warn' : 'ok'));
+  const t1 = state.down ? '消息通道没在跑'
+    : (failed.length ? ('现在回不了：' + failed.map(f => f.name).join('、'))
+      : (warns.length ? '能自动回，有 ' + warns.length + ' 处提醒' : '一切正常，正在自动回'));
+  const t2 = state.down ? '点「启动 / 自检」拉起来'
+    : (failed.length ? '照着右边体检里的办法修'
+      : (warns.length ? '不影响用，顺手的时候处理一下' : '有人发消息就会自动回，不用管'));
+  $('cellHero').className = 'cell span2 hero ' + cls;
+  $('cellHero').innerHTML =
+    '<div class="dot">' + (cls === 'ok' ? '✓' : (cls === 'warn' ? '!' : '✕')) + '</div>' +
+    '<div class="t1">' + esc(t1) + '</div><div class="t2">' + esc(t2) + '</div>';
+
+  const today = todayStart();
+  const outs = (s && s.recent ? s.recent : []).filter(m => m.dir === 'out' && (m.ts || 0) >= today);
+  const ins = (s && s.recent ? s.recent : []).filter(m => m.dir !== 'out' && (m.ts || 0) >= today);
+  $('numOut').textContent = String(outs.length);
+  $('numOutSub').textContent = '条（今天收到 ' + ins.length + ' 条）';
+  $('numThink').textContent = String(s && s.thinking ? s.thinking.length : 0);
+
+  const rows = [
+    ['账号', (s && s.account) || '未知'],
+    ['微信', s && s.wechat ? '在跑' : '没开'],
+    ['外部应答端', s && s.plugin.connected ? ('已连接 v' + s.plugin.version) : '没接上（走本地大脑）'],
+    ['回话模型', s && s.brain.ready ? (s.brain.model || '就绪') + (s.brain.local ? '（本地）' : '（云端）') : '没配好'],
+    ['名单', (s ? s.allowlist.length : 0) + ' 人开启'],
+    ['限速', s ? (s.limits.minIntervalSeconds + ' 秒/条 · 每人每天'
+        + (s.limits.dailyMaxPerChat > 0 ? (' ' + s.limits.dailyMaxPerChat + ' 条') : '不限')
+        + ' · 全体每天' + (s.limits.dailyMaxTotal > 0 ? (' ' + s.limits.dailyMaxTotal + ' 条') : '不限')) : '—'],
+  ];
+  $('kvList').innerHTML = rows.map(r =>
+    '<div class="line"><span class="k">' + esc(r[0]) + '</span><span class="v"><b>' + esc(r[1]) + '</b></span></div>').join('');
+
+  $('checkList').innerHTML = h ? (h.checks || []).map(c => {
+    const st = c.ok ? (c.level === 'warn' ? 'warn' : 'ok') : 'bad';
+    const mk = st === 'ok' ? '✓' : (st === 'warn' ? '!' : '✕');
+    return '<div class="line"><span class="mk ' + st + '">' + mk + '</span>' +
+      '<span class="v"><b>' + esc(c.name) + '</b>　' + esc(c.detail) +
+      (st !== 'ok' && c.hint ? '<div class="fix">怎么办：' + esc(c.hint) + '</div>' : '') + '</span></div>';
+  }).join('') : '<div class="line"><span class="v">还没结果。</span></div>';
+
+  const items = [];
+  (s && s.thinking ? s.thinking : []).forEach(t => items.push(
+    '<div class="line"><span class="k">' + clockS(t.since) + '</span><span class="v"><b>' + esc(t.chat) +
+    '</b> 正在想…（已等 ' + ago(t.since) + '）</span></div>'));
+  (s && s.recent ? s.recent.slice(-6).reverse() : []).forEach(m => items.push(
+    '<div class="line"><span class="k">' + clockS(m.ts) + '</span><span class="v">' +
+    (m.dir === 'out' ? '我回 ' : '收到 ') + '<b>' + esc(m.chat) + '</b>：' +
+    esc(String(m.text || '').replace(/\s+/g, ' ').slice(0, 46)) + '</span></div>'));
+  $('msgList').innerHTML = items.length ? items.join('') : '<div class="line"><span class="v">还没有消息。</span></div>';
+
+  $('eventList').innerHTML = (state.events || []).length
+    ? state.events.slice(0, 8).map(e => '<div class="line' + (/ERROR|错误|失败|未回|接手/.test(e.line) ? ' warn' : '') + '">' +
+        '<span class="k">' + esc(e.src) + '</span><span class="v">' + esc(e.line.slice(0, 110)) + '</span></div>').join('')
+    : '<div class="line"><span class="v">最近没有异常。</span></div>';
+}
+
+/* ---------------- 会话 ---------------- */
+function chatsFrom(s) {
+  const map = new Map();
+  const touch = (chat) => {
+    if (!map.has(chat)) map.set(chat, { chat, msgs: [], last: 0, lastIn: 0, lastOut: 0, skip: null, thinking: 0 });
+    return map.get(chat);
+  };
+  (s.recent || []).forEach(m => {
+    const c = touch(m.chat);
+    c.msgs.push(m);
+    c.last = Math.max(c.last, m.ts || 0);
+    if (m.dir === 'out') c.lastOut = Math.max(c.lastOut, m.ts || 0);
+    else c.lastIn = Math.max(c.lastIn, m.ts || 0);
+  });
+  (s.skips || []).forEach(k => {
+    const c = touch(k.chat);
+    c.msgs.push({ ts: k.ts, dir: 'skip', text: k.text, reason: k.reason });
+    if (!c.skip || (k.ts || 0) > (c.skip.ts || 0)) c.skip = k;
+    c.last = Math.max(c.last, k.ts || 0);
+  });
+  (s.thinking || []).forEach(t => {
+    const c = touch(t.chat);
+    c.thinking = t.since || Date.now() / 1000;
+    c.last = Math.max(c.last, c.thinking);
+  });
+  state.extra.forEach(name => { if (name && !map.has(name)) touch(name); });
+  const enabled = new Set(s.allowlist || []);
+  const disabled = new Set((state.entries || []).filter(e => !e.enabled).map(e => e.name));
+  return [...map.values()].map(c => {
+    c.msgs.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+    const lastMsg = [...c.msgs].reverse().find(m => m.dir !== 'skip');
+    c.snippet = lastMsg ? (lastMsg.dir === 'out' ? '我：' : '') + String(lastMsg.text || '').replace(/\s+/g, ' ').slice(0, 40) : (c.thinking ? '正在想…' : '');
+    c.allowed = enabled.has(c.chat);
+    c.disabled = disabled.has(c.chat);
+    return c;
+  }).sort((a, b) => (b.last || 0) - (a.last || 0));
+}
+function renderChats() {
+  const s = state.status;
+  const list = s ? chatsFrom(s) : [];
+  const q = state.q.trim().toLowerCase();
+  const shown = q ? list.filter(c => c.chat.toLowerCase().includes(q) || c.msgs.some(m => String(m.text || '').toLowerCase().includes(q))) : list;
+  if (!state.chat && shown.length) state.chat = shown[0].chat;
+  $('chatItems').innerHTML = shown.length ? shown.map(c => {
+    const badge = c.thinking ? '<span class="tag brand">正在想</span>'
+      : (c.skip && (c.skip.ts || 0) >= (c.lastOut || 0) ? '<span class="tag warn">未回</span>'
+        : (c.disabled ? '<span class="tag">已关</span>' : (c.allowed ? '' : '<span class="tag">名单外</span>')));
+    return '<div class="chatitem' + (c.chat === state.chat ? ' on' : '') + '" data-chat="' + esc(c.chat) + '">' +
+      avatarHtml(c.chat) + '<div class="mid"><div class="nm">' + esc(c.chat) + '</div>' +
+      '<div class="sn">' + esc(c.snippet || '（没有消息）') + '</div></div>' +
+      '<div class="rt"><div class="tm">' + (c.last ? clock(c.last) : '') + '</div>' + badge + '</div></div>';
+  }).join('') : '<div style="padding:18px;color:var(--dim);font-size:13px">' + (q ? '没搜到。' : '还没有聊天。') + '</div>';
+  renderPane(shown.find(c => c.chat === state.chat) || list.find(c => c.chat === state.chat));
+}
+function renderPane(c) {
+  const head = $('headName'), st = $('headState'), avatar = $('headAvatar'), tog = $('toggleAllow');
+  if (!c) {
+    head.textContent = '还没选聊天'; st.textContent = '左边点一个聊天，看它最近的对话';
+    avatar.style.display = 'none'; tog.style.display = 'none';
+    $('thread').innerHTML = '<div class="bubble sys">还没有消息。</div>';
+    return;
+  }
+  head.textContent = c.chat;
+  avatar.style.display = 'grid';
+  avatar.style.cssText = 'background:hsl(' + hue(c.chat) + ' 58% 46%)';
+  avatar.textContent = initial(c.chat);
+  const bits = [c.allowed ? '名单里开着' : (c.disabled ? '名单里，但被关掉了' : '不在名单，不会自动回')];
+  if (c.thinking) bits.push('正在想（已等 ' + ago(c.thinking) + '）');
+  if (c.skip && (c.skip.ts || 0) >= (c.lastOut || 0) && !c.thinking) bits.push('上一条没回：' + c.skip.reason);
+  st.textContent = bits.join(' · ');
+  tog.style.display = 'inline-block';
+  tog.textContent = c.allowed ? '去名单管理' : '加入名单';
+  tog.dataset.chat = c.chat;
+  const items = c.msgs.slice(-80).map(m => {
+    if (m.dir === 'skip') return '<div class="bubble sys">' + clockS(m.ts) + ' 这条没回：' + esc(m.reason) + '</div>';
+    if (m.dir === 'out') return '<div class="bubble out"><div class="meta">我（自动回） · ' + clockS(m.ts) + '</div>' +
+      '<div class="body">' + esc(m.text) + '</div></div>';
+    const who = (m.sender && m.sender !== c.chat) ? esc(m.sender) + ' · ' : '';
+    return '<div class="bubble in"><div class="meta">' + who + clockS(m.ts) + '</div><div class="body">' + esc(m.text) + '</div></div>';
+  });
+  if (c.thinking) items.push('<div class="bubble think"><span class="typing">正在想</span>　已等 ' + ago(c.thinking) + '</div>');
+  const thread = $('thread');
+  thread.innerHTML = items.join('') || '<div class="bubble sys">这个聊天还没有消息。</div>';
+  thread.scrollTop = thread.scrollHeight;
+}
+
+/* ---------------- 名单 ---------------- */
+function renderPeople() {
+  const entries = state.entries || [];
+  $('peopleList').innerHTML = entries.length ? entries.map(e =>
+    '<div class="prow' + (e.enabled ? '' : ' off') + '">' +
+      '<label class="switch"><input type="checkbox" data-name="' + esc(e.name) + '"' + (e.enabled ? ' checked' : '') +
+      ' aria-label="开启 ' + esc(e.name) + '" /><span class="track"></span><span class="knob"></span></label>' +
+      '<span class="nm">' + esc(e.name) + '</span>' +
+      '<span class="dt">' + (e.added ? new Date(e.added * 1000).toLocaleDateString('zh-CN') : '') + '</span>' +
+      '<button class="btn sm danger" data-del="' + esc(e.name) + '" title="彻底删除">删除</button>' +
+    '</div>').join('') : '<div class="line"><span class="v">名单是空的——现在谁发都不回。</span></div>';
+  $('peopleList').querySelectorAll('input[data-name]').forEach(cb => {
+    cb.addEventListener('change', () => setEnabled(cb.dataset.name, cb.checked));
+  });
+  $('peopleList').querySelectorAll('button[data-del]').forEach(b => {
+    b.addEventListener('click', () => removeName(b.dataset.del));
+  });
+}
+async function setEnabled(name, enabled) {
+  try {
+    const r = await api(DATA + '/api/allowlist', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ toggle: { name, enabled } }),
+    });
+    state.entries = r.entries;
+    if (state.status) state.status.allowlist = r.names;
+    toast(enabled ? ('已开启：' + name) : ('已关闭：' + name + '（记录还留着）'));
+    renderPeople(); renderChats(); renderHome();
+  } catch (e) { toast('改失败：' + e.message, true); }
+}
+async function addName() {
+  const v = $('newName').value.trim();
+  if (!v) { toast('先填个名字', true); return; }
+  await withBtn($('addBtn'), '加入中…', async () => {
+    try {
+      const r = await api(DATA + '/api/allowlist', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ add: [v] }),
+      });
+      state.entries = r.entries;
+      if (state.status) state.status.allowlist = r.names;
+      $('newName').value = '';
+      toast('加好了：' + v);
+      renderPeople(); renderChats();
+    } catch (e) { toast('加失败：' + e.message, true); }
+  });
+}
+async function removeName(n) {
+  if (!confirm('彻底删除「' + n + '」？删了以后要看他的消息得重新加。\n（只是想暂时不回，把开关关掉就行）')) return;
+  try {
+    const r = await api(DATA + '/api/allowlist', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ remove: [n] }),
+    });
+    state.entries = r.entries;
+    if (state.status) state.status.allowlist = r.names;
+    toast('已删除：' + n);
+    renderPeople(); renderChats();
+  } catch (e) { toast('删失败：' + e.message, true); }
+}
+
+/* ---------------- 风格 ---------------- */
+function renderStyle() {
+  const s = state.style;
+  if (!s) return;
+  $('presets').innerHTML = (s.presets || []).map(p =>
+    '<div class="preset" data-pid="' + esc(p.id) + '" title="' + esc(p.desc) + '">' + esc(p.name) + '</div>').join('');
+  $('presets').querySelectorAll('.preset').forEach(el => {
+    el.addEventListener('click', () => {
+      const p = (state.style.presets || []).find(x => x.id === el.dataset.pid);
+      if (!p) return;
+      $('styleText').value = p.text;
+      toast('已换成模板：' + p.name + '（可以接着改，记得保存）');
+    });
+  });
+  if (document.activeElement !== $('styleText')) $('styleText').value = s.text || '';
+  $('styleState').textContent = s.updated ? ('上次保存：' + new Date(s.updated * 1000).toLocaleString('zh-CN')) : '还没改过';
+}
+async function saveStyle() {
+  await withBtn($('styleSave'), '保存中…', async () => {
+    try {
+      const r = await api(DATA + '/api/style', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: $('styleText').value }),
+      });
+      state.style = r.style;
+      toast('保存好了，下一条消息就照这个来');
+      renderStyle(); renderHome();
+    } catch (e) { toast('保存失败：' + e.message, true); }
+  });
+}
+async function previewStyle() {
+  $('previewBox').hidden = false;
+  const msg = $('previewMsg').value.trim() || '在吗？晚上吃啥';
+  await withBtn($('stylePreview'), '生成中…', async () => {
+    $('previewOut').innerHTML = '<span style="color:var(--dim)">正在按这个风格回一句…</span>';
+    try {
+      const r = await api(DATA + '/api/style/preview', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msg, text: $('styleText').value }),
+      });
+      $('previewOut').innerHTML = r.ok
+        ? '<div class="bubble in" style="max-width:100%"><div class="meta">对方说</div><div class="body">' + esc(msg) + '</div></div>' +
+          '<div class="bubble out" style="max-width:100%;margin-top:10px"><div class="meta">它会这么回</div><div class="body">' + esc(r.reply) + '</div></div>'
+        : '<span style="color:var(--rose)">' + esc(r.error || '没生成出来') + '</span>';
+    } catch (e) { $('previewOut').innerHTML = '<span style="color:var(--rose)">预览失败：' + esc(e.message) + '</span>'; }
+  });
+}
+
+/* ---------------- 电源 / 自检弹窗 ---------------- */
+function renderPower() {
+  const c = state.ctrl, btn = $('powerBtn');
+  if (!c) { btn.textContent = '管理进程没连上'; btn.className = 'btn danger'; return; }
+  if (c.bridge.running) { btn.textContent = '停止自动回复'; btn.className = 'btn'; }
+  else { btn.textContent = '启动自动回复'; btn.className = 'btn primary'; }
+}
+async function openModal() {
+  $('mask').classList.add('on');
+  $('mTestOut').textContent = '';
+  $('mChecks').innerHTML = '<div class="mcheck"><span class="tx">正在自检…</span></div>';
+  await runSelfCheck();
+}
+function closeModal() { $('mask').classList.remove('on'); }
+async function runSelfCheck() {
+  try {
+    const h = await api(DATA + '/api/health').catch(() => null);
+    if (!h) {
+      $('mChecks').innerHTML = '<div class="mcheck"><span class="mk bad">✕</span><span class="tx">消息通道没在跑，自检拿不到数据。<div class="fix">点「开始自动回复」把它拉起来，之后再看首页。</div></span></div>';
+      return;
+    }
+    state.health = h;
+    $('mChecks').innerHTML = (h.checks || []).map(c => {
+      const st = c.ok ? (c.level === 'warn' ? 'warn' : 'ok') : 'bad';
+      const mk = st === 'ok' ? '✓' : (st === 'warn' ? '!' : '✕');
+      return '<div class="mcheck"><span class="mk ' + st + '">' + mk + '</span><span class="tx"><b>' + esc(c.name) + '</b>　' + esc(c.detail) +
+        (st !== 'ok' && c.hint ? '<div class="fix">怎么办：' + esc(c.hint) + '</div>' : '') + '</span></div>';
+    }).join('');
+    const failed = (h.checks || []).filter(c => !c.ok).length;
+    $('mGo').textContent = failed ? ('有 ' + failed + ' 项红，仍然启动') : '开始自动回复';
+    $('mTitle').textContent = failed ? ('启动前自检：有 ' + failed + ' 项需要处理') : '启动前自检：都正常';
+    renderHome();
+  } catch (e) {
+    $('mChecks').innerHTML = '<div class="mcheck"><span class="mk bad">✕</span><span class="tx">自检失败：' + esc(e.message) + '</span></div>';
+  }
+}
+async function sendTest(btn, outId) {
+  const text = '测试 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false });
+  await withBtn(btn, '发送中…（约 20 秒）', async () => {
+    try {
+      const r = await api(DATA + '/api/send', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat: '文件传输助手', text }),
+      });
+      const msg = r.ok ? '发出去了，去微信「文件传输助手」看看收到没' : ('没发出去：' + (r.error || '微信没确认'));
+      if (outId) $(outId).textContent = msg;
+      toast(msg, !r.ok);
+    } catch (e) {
+      const msg = '发送失败：' + e.message;
+      if (outId) $(outId).textContent = msg;
+      toast(msg, true);
+    }
+  });
+}
+
+/* ---------------- 大脑设置 ---------------- */
+async function loadBrain() {
+  try {
+    state.brain = await api(DATA + '/api/brain');
+    renderBrain();
+  } catch (e) {
+    toast('读不到大脑配置：' + e.message, true);
+  }
+}
+function renderBrain() {
+  const b = state.brain;
+  if (!b) return;
+
+  $('brainTemplates').innerHTML = (b.templates || []).map((tpl, i) =>
+    '<div class="preset" data-tpl="' + i + '">' + esc(tpl.name) + '</div>').join('');
+  $('brainTemplates').querySelectorAll('.preset').forEach(el => {
+    el.addEventListener('click', () => {
+      const tpl = state.brain.templates[Number(el.dataset.tpl)];
+      if (!tpl) return;
+      $('brainURL').value = tpl.baseURL;
+      $('brainModel').value = tpl.model;
+      $('brainApi').value = tpl.api;
+      toast('已填入 ' + tpl.name + ' 的默认地址，模型名按你实际有的改');
+    });
+  });
+  $('brainURL').value = b.baseURL || '';
+  $('brainModel').value = b.model || '';
+  $('brainApi').value = b.api || 'openai';
+  $('brainKey').value = '';
+  $('brainKey').placeholder = b.hasKey ? '已保存密钥（留空 = 不改动）' : '本地服务不用填；云端必须填';
+  $('brainActive').textContent = b.active || '—';
+  $('brainState').textContent = b.updated ? ('上次保存：' + new Date(b.updated * 1000).toLocaleString('zh-CN')) : '还没改过';
+}
+async function saveBrain() {
+  if (!state.brain) return;
+  const body = {
+    api: $('brainApi').value,
+    baseURL: $('brainURL').value.trim(),
+    model: $('brainModel').value.trim(),
+    apiKey: $('brainKey').value.trim(),
+  };
+
+  await withBtn($('brainSave'), '保存中…', async () => {
+    try {
+      const r = await api(DATA + '/api/brain', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      state.brain = r.brain;
+      renderBrain(); renderHome();
+      toast('保存好了，下一条消息就按这个大脑来');
+    } catch (e) { toast('保存失败：' + e.message, true); }
+  });
+}
+async function testBrain() {
+  await withBtn($('brainTest'), '测试中…', async () => {
+    $('brainTestOut').innerHTML = '<span style="color:var(--dim)">正在按上面填的这组配置真发一句话…（本地大模型第一次加载可能要一两分钟）</span>';
+    const payload = JSON.stringify({
+      api: $('brainApi').value,
+      baseURL: $('brainURL').value.trim(),
+      model: $('brainModel').value.trim(),
+      apiKey: $('brainKey').value.trim(),
+    });
+    try {
+      const r = await api(DATA + '/api/brain/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload });
+      if (r.ok) {
+        $('brainTestOut').innerHTML =
+          '<div class="line"><span class="k">通啦</span><span class="v">用时 ' + esc(String(r.elapsed)) + ' 秒 · ' +
+          (r.info && r.info.local ? '本地模型' : '云端模型') + ' <b>' + esc((r.info && r.info.model) || '') + '</b></span></div>' +
+          '<div class="bubble out" style="max-width:100%;margin-top:8px"><div class="meta">它会这么回</div><div class="body">' + esc(r.reply) + '</div></div>';
+      } else {
+        $('brainTestOut').innerHTML = '<span style="color:var(--rose)">' + esc(r.error || '没通') + '</span>' +
+          (r.info && r.info.url ? '<div class="hint" style="margin-top:6px">试的地址：' + esc(r.info.url) + '</div>' : '');
+      }
+    } catch (e) { $('brainTestOut').innerHTML = '<span style="color:var(--rose)">测试失败：' + esc(e.message) + '</span>'; }
+  });
+}
+/* ---------------- 实时更新：长轮询 ----------------
+   以前是每 4 秒问一次，消息要多等最多 4 秒才显示。
+   现在带 since=<版本号>&wait=20 问：没变化就先挂住，一有新消息（或
+   「正在想」变化）服务器立刻返回。体感是实时的。 */
+async function pollLoop() {
+  while (true) {
+    if (document.hidden) { await sleep(1500); continue; }
+    try {
+      const s = await api(DATA + '/api/status?since=' + rev + '&wait=20');
+      const changed = typeof s.rev !== 'number' || s.rev !== rev;
+      state.status = s;
+      state.down = false;
+      if (typeof s.rev === 'number') rev = s.rev;
+      if (s.allowlistEntries) state.entries = s.allowlistEntries;
+      if (changed) {
+        renderPill();
+        renderHome();
+        if (state.view === 'chats') renderChats();
+        if (state.view === 'allowlist') renderPeople();
+      }
+      if (Date.now() - lastHeavy > 8000) {
+        lastHeavy = Date.now();
+        await loadHeavy();
+      }
+    } catch (e) {
+      state.down = true;
+      renderPill();
+      renderHome();
+      await sleep(2500);
+    }
+  }
+}
+async function loadHeavy() {
+  try {
+    const [h, ev] = await Promise.all([
+      api(DATA + '/api/health'),
+      api(DATA + '/api/events').catch(() => ({ events: [] })),
+    ]);
+    state.health = h;
+    state.events = (ev && ev.events) || [];
+  } catch (e) { /* 通道刚断，下一轮再说 */ }
+  if (!state.style) { try { state.style = await api(DATA + '/api/style'); } catch (e) {} }
+  try { state.ctrl = await api(CTRL + '/api/control/status'); } catch (e) { state.ctrl = null; }
+  renderPill(); renderPower(); renderHome();
+  if (state.view === 'style') renderStyle();
+  if (state.view === 'brain' && !state.brain) loadBrain();
+  loadPending();
+}
+/* ---------------- 紧急刹车 / 待发送 ---------------- */
+async function loadPending() {
+  try {
+    state.pending = await api(DATA + '/api/pending');
+  } catch (e) { state.pending = null; }
+  renderPending();
+}
+function renderPending() {
+  const p = state.pending;
+  const body = $('pendBody');
+  if (!body) return;
+  if (!p) { body.innerHTML = '<span style="color:var(--dim)">读不到（桥接没跑？）</span>'; return; }
+  const n = p.count || 0;
+  const paused = !!p.paused;
+  const items = (p.items || []).slice(-3).reverse().map(i =>
+    '<div class="line"><span class="k">' + esc(i.chat.slice(0, 6)) + '</span>' +
+    '<span class="v">' + esc(String(i.text).slice(0, 24)) +
+    '<span style="color:var(--dim)">　' + esc(i.reason || '') + '</span></span></div>').join('');
+  body.innerHTML =
+    (paused
+      ? '<div class="line warn"><span class="v"><b>已暂停</b>　不会再点微信界面；恢复后自动继续</span></div>'
+      : '<div class="line"><span class="v">运行中' + (n ? ('，有 <b>' + n + '</b> 条待发送') : '，没有积压') + '</span></div>') +
+    items;
+  $('pauseBtn').textContent = paused ? '恢复' : '暂停';
+  $('pauseBtn').onclick = () => setPaused(!paused);
+  $('flushBtn').disabled = paused || n === 0;
+  $('clearBtn').disabled = n === 0;
+}
+async function setPaused(on) {
+  try {
+    await api(DATA + '/api/pause', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ on }),
+    });
+    toast(on ? '已暂停：不会再点微信界面' : '已恢复');
+    loadPending();
+  } catch (e) { toast('操作失败：' + e.message, true); }
+}
+async function flushPending() {
+  await withBtn($('flushBtn'), '补发中…', async () => {
+    try {
+      const r = await api(DATA + '/api/pending/flush', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      toast(r.ok ? ('补发完成，剩 ' + r.count + ' 条') : ('部分没发出去：' + JSON.stringify(r.failed || []).slice(0, 80)), !r.ok);
+      loadPending(); load();
+    } catch (e) { toast('补发失败：' + e.message, true); }
+  });
+}
+$('clearBtn') && $('clearBtn').addEventListener('click', async () => {
+  if (!confirm('清空待发送队列？这些回复就彻底不发了。')) return;
+  try { await api(DATA + '/api/pending/clear', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); toast('已清空'); loadPending(); }
+  catch (e) { toast('清空失败：' + e.message, true); }
+});
+$('flushBtn') && $('flushBtn').addEventListener('click', flushPending);
+/* ---------------- 取数 ---------------- */
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+let rev = -1;
+let lastHeavy = 0;
+
+async function load() {
+  try {
+    const [s, h, ev] = await Promise.all([
+      api(DATA + '/api/status?since=-1'),
+      api(DATA + '/api/health'),
+      api(DATA + '/api/events').catch(() => ({ events: [] })),
+    ]);
+    state.status = s; state.health = h; state.events = (ev && ev.events) || []; state.down = false;
+    if (typeof s.rev === 'number') rev = s.rev;
+    if (s.allowlistEntries) state.entries = s.allowlistEntries;
+  } catch (e) {
+    state.down = true;
+  }
+  if (!state.style) { try { state.style = await api(DATA + '/api/style'); } catch (e) { /* 通道没起来 */ } }
+  try { state.ctrl = await api(CTRL + '/api/control/status'); } catch (e) { state.ctrl = null; }
+  renderPill(); renderPower(); renderHome();
+  if (state.view === 'chats') renderChats();
+  if (state.view === 'allowlist') renderPeople();
+  if (state.view === 'style') renderStyle();
+}
+function renderPill() {
+  const h = state.health, pill = $('pill');
+  if (state.down) { pill.className = 'pill bad'; $('pillText').textContent = '通道没跑'; return; }
+  if (!h) { pill.className = 'pill'; $('pillText').textContent = '检查中…'; return; }
+  const bad = (h.checks || []).filter(c => !c.ok).length;
+  const warn = (h.checks || []).filter(c => c.ok && c.level === 'warn').length;
+  if (bad) { pill.className = 'pill bad'; $('pillText').textContent = bad + ' 项有问题'; }
+  else if (warn) { pill.className = 'pill warn'; $('pillText').textContent = '正常 · ' + warn + ' 项提醒'; }
+  else { pill.className = 'pill ok'; $('pillText').textContent = '一切正常'; }
+}
+async function withBtn(btn, text, fn) {
+  const old = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = text; }
+  try { return await fn(); } finally { if (btn) { btn.disabled = false; btn.textContent = old; } }
+}
+async function control(action) {
+  const label = { 'bridge/start': '启动', 'bridge/stop': '停止', 'bridge/restart': '重启', 'wechat/open': '打开微信' }[action] || '操作';
+  try {
+    const r = await api(CTRL + '/api/control/' + action, { method: 'POST' });
+    toast(label + (r.already ? '：本来就在跑' : ' 完成'));
+    return r;
+  } catch (e) { toast(label + '失败：' + e.message, true); return { ok: false }; }
+}
+async function sendNow() {
+  const chat = state.chat, text = $('composer').value.trim();
+  if (!chat) { toast('先在左边选一个聊天', true); return; }
+  if (!text) { toast('写点什么再发', true); return; }
+  await withBtn($('sendBtn'), '发送中…', async () => {
+    try {
+      const r = await api(DATA + '/api/send', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat, text }),
+      });
+      if (r.ok) { $('composer').value = ''; toast('发出去了'); load(); }
+      else toast('没发出去：' + (r.error || '微信那边没确认'), true);
+    } catch (e) { toast('发送失败：' + e.message, true); }
+  });
+}
+
+$('powerBtn').addEventListener('click', async (e) => {
+  const running = state.ctrl && state.ctrl.bridge && state.ctrl.bridge.running;
+  if (running) {
+    if (!confirm('停止自动回复？\n微信照样能用，只是不再自动回消息。')) return;
+    await withBtn(e.currentTarget, '停止中…', () => control('bridge/stop'));
+    setTimeout(load, 2000);
+  } else {
+    openModal();
+  }
+});
+$('mClose').addEventListener('click', closeModal);
+$('mTestBtn').addEventListener('click', (e) => sendTest(e.currentTarget, 'mTestOut'));
+$('mGo').addEventListener('click', async (e) => {
+  await withBtn(e.currentTarget, '启动中…', () => control('bridge/start'));
+  closeModal();
+  setTimeout(load, 2500);
+});
+$('mask').addEventListener('click', (e) => { if (e.target.id === 'mask') closeModal(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+$('chatItems').addEventListener('click', (e) => {
+  const item = e.target.closest('.chatitem');
+  if (!item) return;
+  state.chat = item.dataset.chat;
+  document.querySelector('.view[data-view="chats"]').classList.add('chat-open');
+  renderChats();
+});
+$('backBtn').addEventListener('click', () => document.querySelector('.view[data-view="chats"]').classList.remove('chat-open'));
+$('search').addEventListener('input', (e) => { state.q = e.target.value; renderChats(); });
+function openNewChat() {
+  const name = $('newChat').value.trim();
+  if (!name) { toast('先填微信里显示的名字', true); return; }
+  if (!state.extra.includes(name)) state.extra.push(name);
+  state.chat = name; $('newChat').value = '';
+  document.querySelector('.view[data-view="chats"]').classList.add('chat-open');
+  renderChats(); $('composer').focus();
+}
+$('newChatBtn').addEventListener('click', openNewChat);
+$('newChat').addEventListener('keydown', (e) => { if (e.key === 'Enter') openNewChat(); });
+$('toggleAllow').addEventListener('click', (e) => {
+  const chat = e.currentTarget.dataset.chat;
+  if (!chat) return;
+  const entry = (state.entries || []).find(x => x.name === chat);
+  if (entry) { go('allowlist'); return; }
+  $('newName').value = chat;
+  go('allowlist');
+  $('newName').focus();
+});
+$('addBtn').addEventListener('click', addName);
+$('newName').addEventListener('keydown', (e) => { if (e.key === 'Enter') addName(); });
+$('sendBtn').addEventListener('click', sendNow);
+$('composer').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendNow(); } });
+$('styleSave').addEventListener('click', saveStyle);
+$('stylePreview').addEventListener('click', previewStyle);
+$('brainSave').addEventListener('click', saveBrain);
+$('brainTest').addEventListener('click', testBrain);
+$('previewAgain').addEventListener('click', previewStyle);
+document.querySelectorAll('details').forEach(d => {
+  d.addEventListener('toggle', () => {
+    if (d.open && d.querySelector('#homeLogs')) {
+      api(DATA + '/api/logs?tail=100')
+        .then(l => { $('homeLogs').textContent = (l.lines || []).join('\n'); })
+        .catch(e => { $('homeLogs').textContent = '读不到日志：' + e.message; });
+    }
+  });
+});
+
+const wanted = new URLSearchParams(location.search).get('view') || location.hash.slice(1) || 'home';
+go(VIEWS.includes(wanted) ? wanted : 'home');
+load().then(() => { lastHeavy = Date.now(); });
+if (!STATIC) {
+  pollLoop();
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) lastHeavy = 0; });
+}
+</script>
+</body>
+</html>

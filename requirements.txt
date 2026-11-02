@@ -1,0 +1,12 @@
+# 运行这套东西只需要两样：消息通道的 WebSocket 库，和读写微信的那个库。
+# 其余依赖会跟着 wechatauto-replica 一起装好，不用手写。
+
+websockets>=12.0
+
+# 读微信本地消息库 + 操作微信界面。装不上（没网 / 代理）就用仓库里的离线包：
+#   python -m pip install vendor\wechatauto_replica-1.2.8.1.tar.gz
+wechatauto-replica==1.2.8.1
+
+# 可选：config.yaml 由自带的极小解析器读，不需要 pyyaml。
+# 你要是想换成更严格的 YAML 解析，装了 pyyaml 也能用（写法不用改）。
+# pyyaml>=6.0
